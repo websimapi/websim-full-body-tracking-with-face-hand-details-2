@@ -45,7 +45,11 @@ let modelReady = false;
 async function init() {
     try {
         statusElement.textContent = "Initializing holistic model...";
-        
+
+        // Disable humanoid checkbox initially until model is loaded/fails
+        showHumanoidCheckbox.disabled = true;
+        showHumanoidCheckbox.checked = false; // Ensure it starts unchecked
+
         // Initialize the holistic model
         holistic = new Holistic({
             locateFile: (file) => {
@@ -73,8 +77,8 @@ async function init() {
         initThreeJS();
         
         // Load the humanoid model
-        loadHumanoidModel();
-        
+        loadHumanoidModel(); // This will enable the checkbox on success
+
         // Start the camera
         await camera.start();
         
@@ -153,8 +157,14 @@ function loadHumanoidModel() {
                     humanoidBones[object.name] = object;
                 }
                 if (object.isMesh) {
-                    object.material.metalness = 0.1;
-                    object.material.roughness = 0.8;
+                    // Adjust material properties for better appearance
+                    object.castShadow = true; // Allow casting shadows
+                    object.receiveShadow = true; // Allow receiving shadows
+                    if (object.material) {
+                         // Ensure metalness and roughness are applied if material exists
+                         object.material.metalness = 0.1;
+                         object.material.roughness = 0.8;
+                    }
                 }
             });
 
@@ -162,19 +172,22 @@ function loadHumanoidModel() {
             modelReady = true;
             statusElement.textContent = "Humanoid model loaded. Tracking active.";
             console.log("Humanoid model loaded successfully.", humanoidBones);
+            showHumanoidCheckbox.disabled = false; // Enable checkbox on successful load
         },
         (xhr) => {
-            // console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+            // Optional: Update status with loading progress
+            // const percentLoaded = (xhr.loaded / xhr.total * 100).toFixed(0);
+            // statusElement.textContent = `Loading humanoid model... ${percentLoaded}%`;
         },
         (error) => {
             console.error('Error loading GLTF model:', error);
             statusElement.textContent = "Error loading humanoid model. Stick figure only.";
-            showHumanoidCheckbox.disabled = true;
+            showHumanoidCheckbox.disabled = true; // Keep disabled on error
             showHumanoidCheckbox.checked = false;
+            modelReady = false; // Ensure modelReady is false
         }
     );
 }
-
 
 // Animation loop
 function animate() {
@@ -195,7 +208,8 @@ function resizeCanvasToDisplaySize() {
 
 // Update the 3D scene with new pose data
 function updateThreeJSPose(results) {
-    const showHumanoid = showHumanoidCheckbox.checked && modelReady;
+    // Ensure checkbox state is only considered if model is ready AND checkbox is not disabled
+    const showHumanoid = modelReady && !showHumanoidCheckbox.disabled && showHumanoidCheckbox.checked;
 
     if (showHumanoid) {
         if (humanoidModel) {
@@ -255,7 +269,7 @@ function onResults(results) {
 
     updateThreeJSPose(results);
 
-    const showHumanoid = showHumanoidCheckbox.checked && modelReady;
+    const showHumanoid = modelReady && !showHumanoidCheckbox.disabled && showHumanoidCheckbox.checked;
 
     if (showBodyCheckbox.checked && !showHumanoid && results.poseLandmarks) { 
         drawConnectors(
